@@ -2,6 +2,7 @@ import os
 import asyncio
 import discord
 import openai
+import re
 
 class PiemaneseTranslatorClient(discord.Client):
     def __init__(self, *args, **kwargs):
@@ -14,6 +15,10 @@ class PiemaneseTranslatorClient(discord.Client):
         if os.path.isfile(self.gpt_prompt):
             with open(self.gpt_prompt, 'r') as f:
                 self.gpt_prompt = ''.join(f.readlines())
+        self.ignore_exprs = []
+        if os.path.isfile('ignore.txt'):
+            with open('ignore.txt', 'r') as f:
+                self.ignore_exprs = [re.compile(line.strip()) for line in f]
 
     async def on_ready(self):
         print(f'Logged in as {self.user}')
@@ -25,6 +30,9 @@ class PiemaneseTranslatorClient(discord.Client):
             return
         if msg.guild and msg.author.id not in self.pi_user_ids:
             return
+        for expr in self.ignore_exprs:
+            if expr.match(msg.clean_content):
+                return
         self.msg_queue.append(msg)
         current_len = len(self.msg_queue)
         async with msg.channel.typing():
