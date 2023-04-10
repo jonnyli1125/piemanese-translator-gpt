@@ -8,9 +8,12 @@ class PiemaneseTranslatorClient(discord.Client):
         super().__init__(*args, **kwargs)
         self.pi_user_ids = [int(x) for x in os.environ['DISCORD_USER_IDS'].split(',')]
         self.msg_queue = []
-        self.delay = 5
+        self.delay = 10
         self.gpt_model = 'text-davinci-003'
         self.gpt_prompt = os.environ['OPENAI_GPT_PROMPT_FORMAT']
+        if os.path.isfile(self.gpt_prompt):
+            with open(self.gpt_prompt, 'r') as f:
+                self.gpt_prompt = ''.join(f.readlines())
 
     async def on_ready(self):
         print(f'Logged in as {self.user}')
@@ -28,12 +31,12 @@ class PiemaneseTranslatorClient(discord.Client):
             await asyncio.sleep(self.delay)
             if len(self.msg_queue) > current_len:
                 return
-            msg_batch_text = '\n'.join(x.clean_content for x in self.msg_queue)
-            msg_batch_translated = self.gpt(msg_batch_text)
-            print(f'{msg.author}:\n{msg_batch_text}')
-            print(f'{self.user}:\n{msg_batch_translated}')
-            await msg.channel.send(msg_batch_translated)
-            self.msg_queue.clear()
+        msg_batch_text = '\n'.join(x.clean_content for x in self.msg_queue)
+        msg_batch_translated = self.gpt(msg_batch_text)
+        print(f'{msg.author}:\n{msg_batch_text}')
+        print(f'{self.user}:\n{msg_batch_translated}')
+        await msg.channel.send(msg_batch_translated)
+        self.msg_queue.clear()
 
     def gpt(self, text):
         prompt = self.gpt_prompt.format(text)
