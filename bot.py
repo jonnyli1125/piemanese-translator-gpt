@@ -50,8 +50,10 @@ class PiemaneseTranslatorClient(discord.Client):
         self.msg_queue.clear()
 
     def gpt(self, texts):
-        messages = [{'role': 'system', 'content': self.gpt_prompt}] + \
-            [{'role': 'user', 'content': text} for text in texts]
+        messages = [
+                {'role': 'system', 'content': self.gpt_prompt},
+                {'role': 'user', 'content': '\n'.join(texts)}
+            ]
         completion = self.openai.chat.completions.create(model=self.gpt_model, messages=messages, temperature=0.1)
         return completion.choices[0].message.content.strip()
 
