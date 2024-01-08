@@ -1,8 +1,9 @@
 import os
 import asyncio
 import discord
-import openai
+from openai import OpenAI
 import re
+import logging
 
 class PiemaneseTranslatorClient(discord.Client):
     def __init__(self, *args, **kwargs):
@@ -10,7 +11,8 @@ class PiemaneseTranslatorClient(discord.Client):
         self.pi_user_ids = [int(x) for x in os.environ['DISCORD_USER_IDS'].split(',')]
         self.msg_queue = []
         self.delay = 10
-        self.gpt_model = 'text-davinci-003'
+        self.openai = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
+        self.gpt_model = 'gpt-4'
         self.gpt_prompt = os.environ['OPENAI_GPT_PROMPT_FORMAT']
         if os.path.isfile(self.gpt_prompt):
             with open(self.gpt_prompt, 'r') as f:
@@ -19,9 +21,10 @@ class PiemaneseTranslatorClient(discord.Client):
         if os.path.isfile('ignore.txt'):
             with open('ignore.txt', 'r') as f:
                 self.ignore_exprs = [re.compile(line.strip()) for line in f]
+        self.log = logging.getLogger('discord.piemanese-translator')
 
     async def on_ready(self):
-        print(f'Logged in as {self.user}')
+        self.log.info('Logged in as %s', self.user)
 
     async def on_message(self, msg):
         if msg.author.id == self.user.id:
@@ -39,17 +42,18 @@ class PiemaneseTranslatorClient(discord.Client):
             await asyncio.sleep(self.delay)
             if len(self.msg_queue) > current_len:
                 return
-        msg_batch_text = '\n'.join(x.clean_content for x in self.msg_queue)
+        msg_batch_text = [x.clean_content for x in self.msg_queue]
         msg_batch_translated = self.gpt(msg_batch_text)
-        print(f'{msg.author}:\n{msg_batch_text}')
-        print(f'{self.user}:\n{msg_batch_translated}')
+        self.log.info('%s: %s', msg.author, '\n'.join(msg_batch_text))
+        self.log.info('%s: %s', self.user, msg_batch_translated)
         await msg.channel.send(msg_batch_translated)
         self.msg_queue.clear()
 
-    def gpt(self, text):
-        prompt = self.gpt_prompt.format(text)
-        completion = openai.Completion.create(model=self.gpt_model, prompt=prompt, max_tokens=256, temperature=0.1)
-        return completion.choices[0].text.strip()
+    def gpt(self, texts):
+        messages = [{'role': 'system', 'content': self.gpt_prompt}] + \
+            [{'role': 'user', 'content': text} for text in texts]
+        completion = self.openai.chat.completions.create(model=self.gpt_model, messages=messages, temperature=0.1)
+        return completion.choices[0].message.content.strip()
 
 def main():
     assert 'DISCORD_API_TOKEN' in os.environ
