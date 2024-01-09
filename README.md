@@ -24,6 +24,6 @@ Build and push image:
 gcloud builds submit --pack image=gcr.io/piemanese-translator/bot-job
 ```
 
-Then, upload prompt to `~/prompts/gpt_prompt.txt` and set environment variables accordingly.
+Then, upload prompt to `~/prompts/prompt.txt`, add volume mounts, and set environment variables accordingly.
 
 Finally, restart the VM instance.
