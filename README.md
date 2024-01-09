@@ -9,7 +9,7 @@ Set the environment variables:
 export DISCORD_API_TOKEN=...
 export DISCORD_USER_IDS=...  # comma-separated list of user ids
 export OPENAI_API_KEY=...
-export OPENAI_GPT_PROMPT_FORMAT=...  # path to text file or a text string
+export OPENAI_PROMPT=...  # path to text file or a text string
 ```
 
 Start the bot:
