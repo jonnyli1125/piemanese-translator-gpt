@@ -12,16 +12,21 @@ class PiemaneseTranslatorClient(discord.Client):
         self.msg_queue = []
         self.delay = 10
         self.openai = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
-        self.gpt_model = 'gpt-4'
-        self.gpt_prompt = os.environ['OPENAI_GPT_PROMPT_FORMAT']
-        if os.path.isfile(self.gpt_prompt):
-            with open(self.gpt_prompt, 'r') as f:
-                self.gpt_prompt = ''.join(f.readlines())
+        self.model = 'gpt-4'
+        self.prompt = self.get_prompt()
         self.ignore_exprs = []
         if os.path.isfile('ignore.txt'):
             with open('ignore.txt', 'r') as f:
                 self.ignore_exprs = [re.compile(line.strip()) for line in f]
         self.log = logging.getLogger('discord.piemanese-translator')
+
+    def get_prompt(self):
+        prompt = os.environ['OPENAI_PROMPT']
+        if os.path.isfile(prompt):
+            with open(prompt, 'r') as f:
+                return ''.join(f.readlines())
+        else:
+            return prompt
 
     async def on_ready(self):
         self.log.info('Logged in as %s', self.user)
@@ -30,6 +35,11 @@ class PiemaneseTranslatorClient(discord.Client):
         if msg.author.id == self.user.id:
             return
         if not msg.content:
+            return
+        if msg.content == '!reload':
+            self.prompt = self.get_prompt()
+            prompt = os.environ['OPENAI_PROMPT']
+            await msg.channel.send(f'Prompt reloaded: {prompt}, isfile: {os.path.isfile(prompt)}')
             return
         if msg.guild and msg.author.id not in self.pi_user_ids:
             return
@@ -51,17 +61,17 @@ class PiemaneseTranslatorClient(discord.Client):
 
     def gpt(self, texts):
         messages = [
-                {'role': 'system', 'content': self.gpt_prompt},
-                {'role': 'user', 'content': '\n'.join(texts)}
+                {'role': 'system', 'content': self.prompt},
+                {'role': 'user', 'content': ' '.join(texts)}
             ]
-        completion = self.openai.chat.completions.create(model=self.gpt_model, messages=messages, temperature=0.1)
+        completion = self.openai.chat.completions.create(model=self.model, messages=messages, temperature=0.1)
         return completion.choices[0].message.content.strip()
 
 def main():
     assert 'DISCORD_API_TOKEN' in os.environ
     assert 'DISCORD_USER_IDS' in os.environ
     assert 'OPENAI_API_KEY' in os.environ
-    assert 'OPENAI_GPT_PROMPT_FORMAT' in os.environ
+    assert 'OPENAI_PROMPT' in os.environ
 
     intents = discord.Intents.default()
     intents.message_content = True
