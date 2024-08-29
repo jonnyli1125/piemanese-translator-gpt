@@ -32,11 +32,12 @@ class PiemaneseTranslatorClient(discord.Client):
         self.log.info('Logged in as %s', self.user)
 
     async def on_message(self, msg):
+        text = msg.clean_content
         if msg.author.id == self.user.id:
             return
-        if not msg.content:
+        if not text:
             return
-        if msg.content == '!reload':
+        if text == '!reload':
             self.prompt = self.get_prompt()
             prompt = os.environ['OPENAI_PROMPT']
             await msg.channel.send(f'Prompt reloaded: {prompt}, isfile: {os.path.isfile(prompt)}')
@@ -44,17 +45,16 @@ class PiemaneseTranslatorClient(discord.Client):
         if msg.guild and msg.author.id not in self.pi_user_ids:
             return
         for expr in self.ignore_exprs:
-            if expr.match(msg.clean_content):
+            if expr.match(text):
                 return
-        self.msg_queue.append(msg)
+        self.msg_queue.append(text)
         current_len = len(self.msg_queue)
         async with msg.channel.typing():
             await asyncio.sleep(self.delay)
-            if len(self.msg_queue) > current_len:
-                return
-        msg_batch_text = [x.clean_content for x in self.msg_queue]
-        msg_batch_translated = self.gpt(msg_batch_text)
-        self.log.info('%s: %s', msg.author, '\n'.join(msg_batch_text))
+        if not self.msg_queue or len(self.msg_queue) > current_len:
+            return
+        msg_batch_translated = self.gpt(self.msg_queue)
+        self.log.info('%s: %s', msg.author, '\n'.join(self.msg_queue))
         self.log.info('%s: %s', self.user, msg_batch_translated)
         await msg.channel.send(msg_batch_translated)
         self.msg_queue.clear()
@@ -64,7 +64,7 @@ class PiemaneseTranslatorClient(discord.Client):
                 {'role': 'system', 'content': self.prompt},
                 {'role': 'user', 'content': ' '.join(texts)}
             ]
-        completion = self.openai.chat.completions.create(model=self.model, messages=messages, temperature=0.1)
+        completion = self.openai.chat.completions.create(model=self.model, messages=messages, temperature=0)
         return completion.choices[0].message.content.strip()
 
 def main():
