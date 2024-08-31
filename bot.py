@@ -19,6 +19,7 @@ class PiemaneseTranslatorClient(discord.Client):
             with open('ignore.txt', 'r') as f:
                 self.ignore_exprs = [re.compile(line.strip()) for line in f]
         self.log = logging.getLogger('discord.piemanese-translator')
+        self.lock = asyncio.Lock()
 
     def get_prompt(self):
         prompt = os.environ['OPENAI_PROMPT']
@@ -51,13 +52,14 @@ class PiemaneseTranslatorClient(discord.Client):
         current_len = len(self.msg_queue)
         async with msg.channel.typing():
             await asyncio.sleep(self.delay)
-        if not self.msg_queue or len(self.msg_queue) > current_len:
-            return
-        msg_batch_translated = self.gpt(self.msg_queue)
-        self.log.info('%s: %s', msg.author, '\n'.join(self.msg_queue))
-        self.log.info('%s: %s', self.user, msg_batch_translated)
-        await msg.channel.send(msg_batch_translated)
-        self.msg_queue.clear()
+        async with self.lock:
+            if not self.msg_queue or len(self.msg_queue) > current_len:
+                return
+            msg_batch_translated = self.gpt(self.msg_queue)
+            self.log.info('%s: %s', msg.author, '\n'.join(self.msg_queue))
+            self.log.info('%s: %s', self.user, msg_batch_translated)
+            await msg.channel.send(msg_batch_translated)
+            self.msg_queue.clear()
 
     def gpt(self, texts):
         messages = [
