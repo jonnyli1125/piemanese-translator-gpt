@@ -12,7 +12,7 @@ class PiemaneseTranslatorClient(discord.Client):
         self.msg_queue = []
         self.delay = 10
         self.openai = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
-        self.model = 'gpt-4'
+        self.model = 'gpt-4.1'
         self.prompt = self.get_prompt()
         self.ignore_exprs = []
         if os.path.isfile('ignore.txt'):
